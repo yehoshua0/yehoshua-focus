@@ -4,9 +4,15 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+interface ReflectionPayload {
+  from: string;
+  text: string;
+  subject: string;
+}
+
 export const processReflection = task({
   id: "yehoshua-focus-reflection",
-  run: async (payload: any) => {
+  run: async (payload: ReflectionPayload) => {
     /**
      * Extract the reflection sent by the user
      * Resend delivers inbound emails through a JSON webhook
@@ -38,7 +44,7 @@ export const processReflection = task({
      * This creates the feedback loop that makes the system alive.
      */
     await resend.emails.send({
-      from: "Yehoshua Focus <focus@resend.dev>",
+      from: "Yehoshua Focus <onboarding@resend.dev>",
       to: [userEmail],
       subject: `Re: ${subject}`,
       html: `

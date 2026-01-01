@@ -9,10 +9,10 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  * Logic: A single task triggered 3 times a day (08:00, 13:00, 19:00).
  * It identifies the context (Morning, Midday, Evening) based on the scheduled hour.
  */
-export const yehoshuaFocusOS = schedules.task({
-  id: "yehoshua-focus-os",
+export const processEmail = schedules.task({
+  id: "yehoshua-focus-email",
   // Trigger at 08:00, 13:00, and 19:00 every day
-  cron: "* * * * *", // for testing every minute
+  cron: "0 8,12,19 * * *", // "* * * * *", // for testing every minute
   run: async (payload) => {
     const receiver = process.env.RECEIVER_EMAIL;
     if (!receiver) {
