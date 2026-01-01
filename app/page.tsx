@@ -152,21 +152,50 @@ export default function Home() {
 
         {/* CTA */}
         <section className="border-t border-zinc-200 pt-12 dark:border-zinc-800 md:pt-16">
-          <div className="mb-8">
+          <div className="mb-12">
             <h2 className="mb-4 text-2xl font-light text-black dark:text-white md:text-3xl">
               Prêt à clarifier ?
             </h2>
-            <p className="text-base text-zinc-600 dark:text-zinc-400 md:text-lg">
-              Le système est en phase privée alpha. Places limitées.
+            <p className="max-w-xl text-base text-zinc-600 dark:text-zinc-400 md:text-lg">
+              Le projet est <span className="font-medium text-black dark:text-white">Open Source</span>. Choisissez la voie qui vous correspond.
             </p>
           </div>
           
-          <a
-            href="mailto:jackjosue517@gmail.com?subject=Je%20veux%20rejoindre%20Yehoshua%20Focus"
-            className="inline-flex items-center justify-center rounded-none border-2 border-black bg-black px-8 py-4 text-base font-medium text-white transition-all hover:bg-white hover:text-black dark:border-white dark:bg-white dark:text-black dark:hover:bg-black dark:hover:text-white md:text-lg"
-          >
-            Demander l'accès
-          </a>
+          <div className="grid gap-12 md:grid-cols-2">
+            {/* Option 1: Join Existing */}
+            <div className="flex flex-col items-start">
+               <h3 className="mb-2 text-lg font-medium text-black dark:text-white">
+                 Rejoindre l'instance officielle
+               </h3>
+               <p className="mb-6 h-full text-sm leading-relaxed text-zinc-500">
+                 Rejoignez le serveur existant géré par Yehoshua. Idéal pour commencer immédiatement sans configuration.
+               </p>
+               <a
+                href="mailto:jackjosue517@gmail.com?subject=Je%20veux%20rejoindre%20Yehoshua%20Focus"
+                className="inline-flex w-full items-center justify-center rounded-none border-2 border-black bg-black px-6 py-3 text-sm font-medium text-white transition-all hover:bg-white hover:text-black dark:border-white dark:bg-white dark:text-black dark:hover:bg-black dark:hover:text-white md:w-auto"
+              >
+                Demander l'accès
+              </a>
+            </div>
+
+            {/* Option 2: Clone & Deploy */}
+             <div className="flex flex-col items-start">
+               <h3 className="mb-2 text-lg font-medium text-black dark:text-white">
+                 Déployer votre instance
+               </h3>
+               <p className="mb-6 h-full text-sm leading-relaxed text-zinc-500">
+                 Gardez le contrôle total. Clonez le dépôt et déployez votre propre serveur Yehoshua Focus.
+               </p>
+               <a
+                href="https://github.com/yehoshua0/yehoshua-focus"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-full items-center justify-center rounded-none border-2 border-zinc-300 bg-transparent px-6 py-3 text-sm font-medium text-black transition-all hover:border-black hover:bg-zinc-50 dark:border-zinc-700 dark:text-white dark:hover:border-white dark:hover:bg-zinc-900 md:w-auto"
+              >
+                Voir sur GitHub
+              </a>
+            </div>
+          </div>
         </section>
 
         {/* Footer */}
