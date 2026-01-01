@@ -20,8 +20,7 @@ export const yehoshuaFocusOS = schedules.task({
     }
 
     // Determine the scheduled hour to select the right cognitive prompt
-    // We use scheduleTime from payload for temporal accuracy
-    const scheduledDate = payload.scheduleTime ? new Date(payload.scheduleTime) : new Date();
+    const scheduledDate = payload.timestamp ? new Date(payload.timestamp) : new Date();
     const hour = scheduledDate.getHours();
 
     // Default: Midday Session (The moment of truth)
