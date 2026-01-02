@@ -6,13 +6,13 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * Yehoshua Focus: Personal Thinking OS
- * Logic: A single task triggered 3 times a day (08:00, 13:00, 19:00).
+ * Logic: A single task triggered 3 times a day (08:00, 12:00, 19:00).
  * It identifies the context (Morning, Midday, Evening) based on the scheduled hour.
  */
 export const processEmail = schedules.task({
   id: "yehoshua-focus-email",
-  // Trigger at 08:00, 13:00, and 19:00 every day
-  cron:"*/10 * * * *", // "0 8,12,19 * * *", // "* * * * *", // for testing every minute
+  // Trigger at 08:00, 12:00, and 19:00 every day
+  cron: "0 8,12,19 * * *", // "* * * * *", // for testing every minute
   run: async (payload) => {
     const receiver = process.env.RECEIVER_EMAIL;
     if (!receiver) {
@@ -39,7 +39,7 @@ export const processEmail = schedules.task({
         prompt: "Quelle est l'unique chose qui mérite ton attention aujourd'hui ? Pourquoi ?",
         subtext: "Définis ton critère de succès pour ce soir."
       };
-    } 
+    }
     // Evening Logic (The clarity)
     else if (hour >= 18) {
       session = {
@@ -55,7 +55,7 @@ export const processEmail = schedules.task({
       from: "Yehoshua Focus <onboarding@resend.dev>",
       to: [receiver],
       // Replies are routed to your inbound address for AI processing
-      replyTo: "focus@irkoudo.resend.app", 
+      replyTo: "focus@irkoudo.resend.app",
       subject: `[Yehoshua Focus] ${session.subject}`,
       html: `
         <div style="font-family: 'Georgia', serif; max-width: 600px; color: #1a1a1a; line-height: 1.6;">
@@ -88,10 +88,10 @@ export const processEmail = schedules.task({
       throw error; // Retrigger task on failure
     }
 
-    return { 
-      session: session.title, 
+    return {
+      session: session.title,
       sentAt: scheduledDate.toISOString(),
-      id: data?.id 
+      id: data?.id
     };
   },
 });

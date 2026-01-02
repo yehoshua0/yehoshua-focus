@@ -5,8 +5,8 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   const payload = await req.json();
 
-  // On lance la tâche Trigger.dev avec les données de l'email
-  // Resend envoie les données dans payload.data
+  // We launch Trigger.dev task with email data
+  // Resend sends the data in payload.data
   await tasks.trigger("yehoshua-focus-reflection", {
     from: payload.data.from,
     email_id: payload.data.email_id,
