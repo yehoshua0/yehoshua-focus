@@ -5,6 +5,8 @@ import { NextResponse } from "next/server";
 export async function POST(req: Request) {
   const payload = await req.json();
 
+  console.log("Resend webhook received:", payload);
+
   // We launch Trigger.dev task with email data
   // Resend sends the data in payload.data
   await tasks.trigger("yehoshua-focus-reflection", {
