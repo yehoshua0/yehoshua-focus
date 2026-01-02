@@ -1,4 +1,4 @@
-// Exemple pour Next.js (app/api/webhooks/resend/route.ts)
+// Example for Next.js (app/api/webhooks/resend/route.ts)
 import { tasks } from "@trigger.dev/sdk/v3";
 import { NextResponse } from "next/server";
 
@@ -14,4 +14,9 @@ export async function POST(req: Request) {
   });
 
   return NextResponse.json({ processed: true });
+}
+
+export async function GET() {
+  // Simple response to validate the endpoint during Resend checks
+  return NextResponse.json({ status: "ok", message: "Webhook endpoint ready" });
 }
