@@ -12,7 +12,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export const processEmail = schedules.task({
   id: "yehoshua-focus-email",
   // Trigger at 08:00, 13:00, and 19:00 every day
-  cron: "0 8,12,19 * * *", // "* * * * *", // for testing every minute
+  cron:"*/10 * * * *", // "0 8,12,19 * * *", // "* * * * *", // for testing every minute
   run: async (payload) => {
     const receiver = process.env.RECEIVER_EMAIL;
     if (!receiver) {

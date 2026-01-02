@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   // Resend envoie les données dans payload.data
   await tasks.trigger("yehoshua-focus-reflection", {
     from: payload.data.from,
-    text: payload.data.text,
+    email_id: payload.data.email_id,
     subject: payload.data.subject,
   });
 
