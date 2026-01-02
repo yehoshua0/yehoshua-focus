@@ -355,7 +355,7 @@ async function generateResponse(
  */
 export const processReflection = task({
   id: "yehoshua-focus-reflection",
-  run: async (payload: ReflectionPayload) => {
+  run: async (payload: ReflectionPayload, { ctx }) => {
     const { from, email_id, subject } = payload;
     
     console.log("Payload received", payload);
@@ -441,7 +441,13 @@ export const processReflection = task({
     }
     
     // Environment check - prevent duplicate emails in dev
-    const isProduction = process.env.NODE_ENV === "production";
+    // const isProduction = process.env.NODE_ENV === "production";
+    const isProduction = ctx.environment.type === "PRODUCTION";
+
+    console.log("Environment check via CTX:", { 
+      envType: ctx.environment.type, 
+      isProduction 
+    });
     
     if (isProduction) {
       await resend.emails.send({
