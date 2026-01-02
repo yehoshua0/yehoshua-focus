@@ -1,164 +1,114 @@
+// src/trigger/process-reflection.ts
 import { logger, task } from "@trigger.dev/sdk/v3";
 import { Resend } from "resend";
 import Groq from "groq-sdk";
-import { createClient } from "@supabase/supabase-js";
 
-// Clients initialization
 const resend = new Resend(process.env.RESEND_API_KEY);
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
-/**
- * Extensible Interface: Mirrors Resend Inbound Data Structure.
- * Allows for future fields (attachments, headers) without breaking changes.
- */
 interface ReflectionPayload {
   from: string;
-  to: string[];
+  text: string;
   subject: string;
-  text?: string;
-  html?: string;
-  strippedText?: string;
-  email_id: string;
-  created_at: string;
-  attachments?: any[]; // Future proofing for file analysis
-  metadata?: Record<string, any>; // For custom tracking
-}
-
-/**
- * Robust text extraction to handle different email formats
- */
-function extractUserResponse(fullText: string | undefined | null): string {
-  if (!fullText || typeof fullText !== "string") return "";
-
-  // Common email reply splitters
-  const markers = [
-    "\nLe ", 
-    "\nOn ", 
-    "---", 
-    "________________________________", 
-    "Sent from my iPhone"
-  ];
-  
-  let cleaned = fullText;
-  for (const marker of markers) {
-    if (cleaned.includes(marker)) {
-      cleaned = cleaned.split(marker)[0];
-    }
-  }
-  return cleaned.trim();
-}
-
-/**
- * Session logic based on server time
- */
-function getSessionContext() {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 11) return { id: "morning", label: "L'Intention" };
-  if (hour >= 11 && hour < 17) return { id: "midday", label: "La Vérité" };
-  return { id: "evening", label: "Le Bilan" };
 }
 
 export const processReflection = task({
   id: "yehoshua-focus-reflection",
   run: async (payload: ReflectionPayload) => {
-    // 1. Unified content extraction
-    const rawContent = payload.text || payload.strippedText || "";
-    const cleanText = extractUserResponse(rawContent);
-    const session = getSessionContext();
+    /**
+     * Extract the reflection sent by the user
+     * Resend delivers inbound emails through a JSON webhook
+     */
+    const userEmail = payload.from;
+    const userReflection = payload.text;
+    const subject = payload.subject;
 
-    logger.log("Email received", { 
-      id: payload.email_id, 
-      from: payload.from, 
-      session: session.id 
-    });
+    logger.log("Reflection received", { userEmail, userReflection });
 
-    if (!cleanText || cleanText.length < 2) {
-      logger.warn("No usable content in email", { payload });
-      return { processed: false, reason: "empty_body" };
-    }
-
-    // 2. Memory: Fetch today's history from Supabase
-    const today = new Date().toISOString().split("T")[0];
-    const { data: history } = await supabase
-      .from('reflections')
-      .select('content, moment, ai_response')
-      .eq('user_email', payload.from)
-      .gte('created_at', today)
-      .order('created_at', { ascending: true });
-
-    const memoryLog = history?.length 
-      ? history.map(h => `[${h.moment}]: ${h.content}`).join("\n")
-      : "No previous interaction today.";
-
-    // 3. AI Generation with Conversation Closer Persona
+    /**
+     * Groq / LLM Analysis
+     * We use a strong open-weight model to analyze the user's intent.
+     * The goal is to be Socratic: question the user, ensuring clarity.
+     */
     let replyMessage = "";
+
     try {
       const completion = await groq.chat.completions.create({
-        model: "groq/compound",
         messages: [
           {
             role: "system",
-            content: `Tu es Yehoshua, un mentor stoïcien radical. 
-            CONTEXTE: Session de ${session.label}.
-            MÉMOIRE DU JOUR:
-            ${memoryLog}
+            content: `Tu es un challenger stoïcien. Pas un assistant. Pas un coach gentil.
 
-            MISSION: Analyse et ferme la boucle. Pas de politesse. Max 2 phrases. 
-            Si l'utilisateur dévie de son intention matinale, sois cinglant. 
-            Ta parole doit être finale.`
+Ton rôle : Confronter l'utilisateur avec la vérité de ses propres mots.
+
+RÈGLES STRICTES :
+1. JAMAIS de politesse (pas de "Bonjour", "Merci", etc.)
+2. JAMAIS de questions ouvertes molles ("Comment te sens-tu ?")
+3. TOUJOURS des questions fermées et directes
+4. Maximum 2 phrases courtes
+5. Tutoiement obligatoire
+6. Si c'est vague → exige la précision
+7. Si c'est une excuse → confronte sans pitié
+8. Si c'est clair et actionnable → valide sobrement
+
+EXEMPLES DE TON :
+❌ "Peux-tu m'en dire plus sur ce qui t'a empêché ?"
+✅ "Des urgences. C'est la 3e fois cette semaine. Est-ce vraiment imprévu ou c'est toi qui choisis le chaos ?"
+
+❌ "Je comprends que ce soit difficile."
+✅ "Difficile ou pas prioritaire ? Les deux ne sont pas la même chose."
+
+❌ "Bravo pour cette clarté !"
+✅ "C'est noté. On verra demain si tu le fais vraiment.`,
           },
           {
             role: "user",
-            content: `Subject: ${payload.subject}\nResponse: ${cleanText}`
-          }
+            content: `Sujet: ${subject}\n\nMessage: ${userReflection}`,
+          },
         ],
-        temperature: 0.4,
+        model: "groq/compound", // User requested this specific model
+        temperature: 0.5,
+        max_tokens: 150,
       });
 
-      replyMessage = completion.choices[0]?.message?.content?.trim() || "Agis.";
+      replyMessage = completion.choices[0]?.message?.content || 
+        "C'est noté. Mais es-tu sûr que c'est l'essentiel ?";
+        
     } catch (error) {
-      logger.error("AI Error", { error });
-      replyMessage = "L'intention est reçue. Le reste est du bruit.";
+      logger.error("Groq generation failed", { error });
+      // Fallback if AI fails
+      const isVague = !userReflection || userReflection.trim().length < 20;
+      if (isVague) {
+        replyMessage = "Ta réponse est courte. Est-ce par clarté ou par évitement ?";
+      } else {
+        replyMessage = "Bien. J'ai enregistré cette intention.";
+      }
     }
 
-    // 4. Persistence
-    await supabase.from('reflections').insert({
-      user_email: payload.from,
-      content: cleanText,
-      moment: session.id,
-      ai_response: replyMessage,
-      subject: payload.subject,
-      metadata: { 
-        email_id: payload.email_id,
-        received_at: payload.created_at 
-      }
-    });
-
-    // 5. Feedback Loop
+    /**
+     * Send a response from Yehoshua Focus
+     * This creates the feedback loop that makes the system alive.
+     */
     await resend.emails.send({
       from: "Yehoshua Focus <onboarding@resend.dev>",
-      to: [payload.from],
-      subject: `Re: ${payload.subject}`,
+      to: [userEmail],
+      subject: `Re: ${subject}`,
       html: `
-        <div style="font-family: 'Georgia', serif; max-width: 600px; margin: 0 auto; color: #1a1a1a;">
-          <p style="text-transform: uppercase; letter-spacing: 2px; color: #888; font-size: 11px;">
-            Yehoshua Focus // ${session.label}
-          </p>
+        <div style="font-family: 'Georgia', serif; max-width: 600px; color: #1a1a1a; line-height: 1.6;">
           <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-          <p style="font-size: 18px; line-height: 1.6; font-style: italic;">
+          <p style="text-transform: uppercase; letter-spacing: 2px; color: #888; font-size: 11px; margin-bottom: 30px;">
+            Yehoshua Focus // Système d'Exploitation de la Pensée
+          </p>
+          
+          <blockquote style="margin: 40px 0; padding-left: 20px; border-left: 3px solid #000; font-size: 18px; font-style: italic;">
             "${replyMessage}"
-          </p>
-          <p style="font-size: 10px; color: #ccc; margin-top: 50px; text-align: center;">
-            FIN DE TRANSMISSION // LE FOCUS EST UNE DISCIPLINE
-          </p>
+          </blockquote>
         </div>
       `,
     });
 
-    return { processed: true, emailId: payload.email_id };
+    return { processed: true, reply: replyMessage };
   },
 });
