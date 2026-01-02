@@ -105,6 +105,14 @@ EXEMPLES DE TON :
           <blockquote style="margin: 40px 0; padding-left: 20px; border-left: 3px solid #000; font-size: 18px; font-style: italic;">
             "${replyMessage}"
           </blockquote>
+
+          <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+          <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #eee;">
+            <p style="font-size: 12px; color: #999;">
+              Yehoshua Focus | Documenter ta clarté. 
+              Décider réduit le bruit. Le focus suit.
+            </p>
+          </div>
         </div>
       `,
     });
