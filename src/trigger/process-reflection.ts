@@ -5,6 +5,7 @@ import { logger, task } from "@trigger.dev/sdk/v3";
 import { Resend } from "resend";
 import Groq from "groq-sdk";
 import { createClient } from "@supabase/supabase-js";
+import { renderYehoshuaReplyEmail } from "../../emails";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -26,23 +27,21 @@ interface ReflectionPayload {
 function extractUserResponse(fullText: string | undefined | null): string {
   if (!fullText || typeof fullText !== "string") return "";
   
-  // Split markers that indicate quoted content
   const markers = [
-    "\nLe ", // French: "Le [date]..."
-    "\nOn ", // French: "On [date]..."
+    "\nLe ",
+    "\nOn ",
     "---",
     "________________________________",
     "Sent from my iPhone",
     "Envoyé de mon iPhone",
     "Get Outlook for",
-    "\n>", // Quoted lines starting with >
-    "a écrit :", // French: "wrote:"
+    "\n>",
+    "a écrit :",
     "wrote:",
   ];
   
   let cleaned = fullText;
   
-  // Find the earliest marker and cut everything after
   for (const marker of markers) {
     const index = cleaned.indexOf(marker);
     if (index !== -1) {
@@ -61,20 +60,20 @@ function getCognitiveContext() {
   
   if (hour >= 6 && hour <= 11) {
     return { 
-      moment: "morning", 
+      moment: "morning" as const,
       goal: "User is defining their daily priority" 
     };
   }
   
   if (hour > 11 && hour <= 17) {
     return { 
-      moment: "midday", 
+      moment: "midday" as const,
       goal: "User is checking alignment with morning intention" 
     };
   }
   
   return { 
-    moment: "evening", 
+    moment: "evening" as const,
     goal: "User is reflecting on the gap between intention and reality" 
   };
 }
@@ -105,16 +104,14 @@ function isEvasive(text: string): boolean {
 function isVague(text: string): boolean {
   const cleanText = text.trim();
   
-  // Too short
   if (cleanText.length < 15) return true;
   
-  // Generic vague responses
   const vaguePatterns = [
     /^(oui|non|ok|bien|ça va)$/i,
     /je ne sais pas/i,
     /un peu/i,
-    /beaucoup de choses/i, // Generic "many things"
-    /j'ai accompli/i, // "I accomplished" without specifics
+    /beaucoup de choses/i,
+    /j'ai accompli/i,
   ];
   
   return vaguePatterns.some((pattern) => pattern.test(cleanText));
@@ -132,7 +129,6 @@ function buildConfrontationalPrompt(
   const isUserEvasive = isEvasive(userReflection);
   const isUserVague = isVague(userReflection);
   
-  // Build memory context
   let memoryContext = "No previous records for today.";
   let morningIntention = "";
   
@@ -147,7 +143,6 @@ function buildConfrontationalPrompt(
       .join("\n");
   }
   
-  // Core system prompt - Stoic challenger
   let systemPrompt = `You are Yehoshua, a stoic challenger. Not a coach. Not a therapist.
 
 Your role: Confront the user with the truth using their OWN WORDS from earlier today.
@@ -168,7 +163,6 @@ TODAY'S MEMORY FROM DATABASE:
 ${memoryContext}
 `;
 
-  // Add moment-specific confrontation logic
   if (moment === "midday" && morningIntention) {
     systemPrompt += `
 
@@ -195,7 +189,6 @@ No judgment. Just truth. Use their own words to show the disconnect.
 Example: "Ce matin : '${morningIntention}'. Qu'est-ce qui s'est vraiment passé ?"`;
   }
   
-  // Add detection alerts
   if (isUserEvasive) {
     systemPrompt += `
 
@@ -208,7 +201,6 @@ Example: "Ce matin : '${morningIntention}'. Qu'est-ce qui s'est vraiment passé 
 ⚠️ ALERT: Response is vague (generic phrases like "beaucoup de choses"). Demand ONE specific thing they accomplished.`;
   }
   
-  // Add tone examples
   systemPrompt += `
 
 EXAMPLES OF CORRECT TONE:
@@ -235,7 +227,6 @@ function getFallbackResponse(
   isVague: boolean,
   morningIntention?: string
 ): string {
-  // Vague responses with memory
   if (isVague && morningIntention) {
     return `Ce matin : "${morningIntention}". "Beaucoup de choses" n'est pas une réponse. Quoi exactement ?`;
   }
@@ -249,7 +240,6 @@ function getFallbackResponse(
     return responses[Math.floor(Math.random() * responses.length)];
   }
   
-  // Evasive responses with memory
   if (isEvasive && morningIntention) {
     return `Ce matin : "${morningIntention}". Maintenant : des excuses. C'est la vérité ?`;
   }
@@ -263,7 +253,6 @@ function getFallbackResponse(
     return responses[Math.floor(Math.random() * responses.length)];
   }
   
-  // Clear responses
   const clearResponses = [
     "C'est noté. On verra ce soir.",
     "Ok. Mais si tu dévies à midi, assume-le.",
@@ -282,7 +271,6 @@ async function generateResponse(
   goal: string,
   todayHistory: Array<{ content: string; moment: string; created_at: string }> | null
 ): Promise<string> {
-  // Input validation
   if (!userReflection || userReflection.trim().length === 0) {
     return "Silence. C'est une réponse aussi. Mais à quelle question ?";
   }
@@ -313,7 +301,6 @@ async function generateResponse(
     
     const reply = completion.choices[0]?.message?.content?.trim();
     
-    // Safety check: ensure LLM didn't become soft
     if (!reply || reply.length === 0) {
       logger.warn("LLM returned empty response, using fallback");
       const morningIntention = todayHistory?.find(r => r.moment === "morning")?.content;
@@ -367,14 +354,11 @@ export const processReflection = task({
     
     if (fetchError || !fullEmail) {
       logger.error("Failed to retrieve email content", { email_id, fetchError });
-      console.log("Failed to retrieve email content", { email_id, fetchError });
       throw new Error(`Resend fetch failed: ${fetchError?.message}`);
     }
     
-    // Extract text, fallback to HTML
+    // Extract and clean text
     const rawText = (fullEmail as any)?.text ?? (fullEmail as any)?.html ?? "";
-    
-    // Clean the text to remove email history
     const cleanText = extractUserResponse(rawText);
     
     console.log("User reflection (cleaned)", cleanText);
@@ -406,7 +390,6 @@ export const processReflection = task({
     
     if (dbError) {
       logger.error("Supabase query failed", { dbError });
-      console.log("Supabase query failed", { dbError });
     }
     
     logger.log("Memory retrieved", { 
@@ -438,11 +421,9 @@ export const processReflection = task({
     
     if (insertError) {
       logger.error("Failed to save reflection", { insertError });
-      console.log("Failed to save reflection", { insertError });
     }
     
     // Environment check - prevent duplicate emails in dev
-    // const isProduction = process.env.NODE_ENV === "production";
     const isProduction = ctx.environment.type === "PRODUCTION";
 
     console.log("Environment check via CTX:", { 
@@ -451,28 +432,18 @@ export const processReflection = task({
     });
     
     if (isProduction) {
+      // Render email using React Email template
+      const html = await renderYehoshuaReplyEmail(
+        replyMessage,
+        moment,
+        todayHistory?.length || 0
+      );
+
       await resend.emails.send({
         from: "Yehoshua Focus <onboarding@resend.dev>",
         to: [from],
         subject: `Re: ${subject}`,
-        html: `
-          <div style="font-family: 'Georgia', serif; max-width: 600px; margin: 0 auto; color: #1a1a1a; line-height: 1.6;">
-            <p style="text-transform: uppercase; letter-spacing: 2px; color: #888; font-size: 11px; margin-bottom: 20px;">
-              Yehoshua Focus // ${moment.toUpperCase()}
-            </p>
-            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-            <div style="font-size: 18px; line-height: 1.6; font-style: italic; border-left: 3px solid #000; padding-left: 20px; margin: 30px 0;">
-              "${replyMessage}"
-            </div>
-            ${todayHistory && todayHistory.length > 0 ? `
-            <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee;">
-              <p style="font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 1px;">
-                Mémoire du jour : ${todayHistory.length} réflexion(s)
-              </p>
-            </div>
-            ` : ''}
-          </div>
-        `,
+        html,
       });
     } else {
       logger.log("Development Mode: Email skipped", { replyMessage });
